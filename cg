@@ -1,0 +1,45 @@
+#!/usr/bin/env python3.6
+
+import argparse
+from pathlib import Path
+
+parser = argparse.ArgumentParser()
+parser.add_argument("PID")
+parser.add_argument("--cpus", type=float)
+args = parser.parse_args()
+
+p = Path('/proc/{}/cgroup'.format(args.PID))
+with open(p) as f:
+    cgroups = {}
+    for line in f:
+        line =  line.strip()
+        _, key, value = line.split(":")
+        cgroups[key] = value
+
+
+def set_cpus(group, cpus):
+    period = get_cpu_period(group)
+    quota = int(period * cpus)
+    p = Path('/sys/fs/cgroup/cpu{}/cpu.cfs_quota_us'.format(group))
+    with open(p, 'w') as f:
+        f.write(str(quota))
+
+def get_cpu_period(group):
+    p = Path('/sys/fs/cgroup/cpu{}/cpu.cfs_period_us'.format(group))
+    with open(p) as f:
+        period = f.readline()
+    return int(period)
+
+def get_cpu_quota(group):
+    p = Path('/sys/fs/cgroup/cpu{}/cpu.cfs_quota_us'.format(group))
+    with open(p) as f:
+        qutoa = f.readline()
+    return int(qutoa)
+
+group = cgroups['cpuacct,cpu']
+quota = get_cpu_quota(group)
+print("before:{}".format(quota))
+print("set:{}".format(args.cpus))
+set_cpus(group, args.cpus)
+qutoa = get_cpu_quota(group)
+print("after:{}".format(qutoa))
